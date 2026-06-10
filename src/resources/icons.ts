@@ -10,14 +10,16 @@ import {
   normalizeIconName, validateNumericOption, isValidIconName,
   styleCapitalized, STYLE_DESCRIPTIONS, WEIGHT_DESCRIPTIONS,
 } from "../lib/constants.js";
+import { getMetadata, getIconMeta, getIconCategories, getIconTags, getIconPopularity, getIconCodepoint } from "../lib/metadata.js";
 
 export const iconsResource = new Command("icons")
   .description("Search, get info, and download Material Symbols icons");
 
 iconsResource
   .command("list")
-  .description("List available icon names, optionally filtered by search query")
+  .description("List available icon names, optionally filtered by search query or category")
   .option("--search <query>", "Filter icons by name (case-insensitive partial match)")
+  .option("--category <cat>", "Filter by category (e.g. Navigation, Action, Social, Maps)")
   .option("--limit <n>", "Max results", "50")
   .option("--offset <n>", "Number of results to skip", "0")
   .option("--fields <cols>", "Comma-separated columns to display", "name")
@@ -25,16 +27,31 @@ iconsResource
   .option("--format <fmt>", "Output format: text, json, csv, yaml")
   .addHelpText("after", [
     "Examples:",
-    "  material-symbols-cli icons list",
-    "  material-symbols-cli icons list --search home",
-    "  material-symbols-cli icons list --search arrow --limit 10 --json",
+    "  material-symbols-cli icons list --category Navigation",
+    "  material-symbols-cli icons list --search arrow --category Maps",
+    "  material-symbols-cli icons list --search home --limit 10 --json",
   ].join("\n"))
   .action(async (opts) => {
     try {
       let filtered: string[];
-      if (opts.search) {
+      if (opts.search && opts.category) {
+        const q = opts.search.toLowerCase();
+        const cat = opts.category.toLowerCase();
+        const meta = await getMetadata();
+        filtered = ICON_NAMES.filter((n) => {
+          const m = meta.get(n);
+          return n.includes(q) && m && m.categories && m.categories.some((c: string) => c.toLowerCase() === cat);
+        });
+      } else if (opts.search) {
         const q = opts.search.toLowerCase();
         filtered = ICON_NAMES.filter((n) => n.includes(q));
+      } else if (opts.category) {
+        const cat = opts.category.toLowerCase();
+        const meta = await getMetadata();
+        filtered = ICON_NAMES.filter((n) => {
+          const m = meta.get(n);
+          return m && m.categories && m.categories.some((c: string) => c.toLowerCase() === cat);
+        });
       } else {
         filtered = ICON_NAMES;
       }
@@ -61,28 +78,46 @@ iconsResource
   .command("search")
   .description("Search icons by keyword with more details")
   .argument("<query>", "Search keyword to match icon names")
+  .option("--category <cat>", "Filter by category (e.g. Navigation, Action)")
   .option("--limit <n>", "Max results", "30")
   .option("--json", "Output as JSON")
   .option("--format <fmt>", "Output format: text, json, csv, yaml")
   .addHelpText("after", [
     "Examples:",
     "  material-symbols-cli icons search home",
-    "  material-symbols-cli icons search arrow_back --json",
-    "  material-symbols-cli icons search settings --limit 5",
+    "  material-symbols-cli icons search arrow --category Maps",
+    "  material-symbols-cli icons search settings --limit 5 --json",
   ].join("\n"))
   .action(async (query: string, opts) => {
     try {
+      const meta = await getMetadata();
       const q = query.toLowerCase();
-      const matched = ICON_NAMES.filter((n) => n.includes(q));
+      let matched: string[];
+
+      if (opts.category) {
+        const cat = opts.category.toLowerCase();
+        matched = ICON_NAMES.filter((n) => {
+          const m = meta.get(n);
+          return n.includes(q) && m && m.categories && m.categories.some((c: string) => c.toLowerCase() === cat);
+        });
+      } else {
+        matched = ICON_NAMES.filter((n) => n.includes(q));
+      }
+
       const limit = Math.max(1, parseInt(opts.limit, 10) || 30);
-      const results = matched.slice(0, limit).map((name) => ({
-        name,
-        svg_url: `${SVG_CDN}-400/outlined/${name}.svg`,
-        android_xml_url: `https://github.com/google/material-design-icons/tree/main/symbols/android/${name}/materialsymbolsoutlined`,
-        styles_available: STYLES.join(", "),
-        fill_available: "yes",
-        codepoint_url: `https://fonts.google.com/icons?icon=${name}`,
-      }));
+      const results = matched.slice(0, limit).map((name) => {
+        const m = meta.get(name);
+        return {
+          name,
+          categories: m ? (m.categories || []) : [],
+          tags: m ? (m.tags || []).slice(0, 5) : [],
+          popularity: m ? m.popularity : undefined,
+          codepoint: m ? m.codepoint : undefined,
+          svg_url: `${SVG_CDN}-400/outlined/${name}.svg`,
+          android_xml_url: `https://github.com/google/material-design-icons/tree/main/symbols/android/${name}/materialsymbolsoutlined`,
+          styles_available: STYLES.join(", "),
+        };
+      });
 
       output(results, { json: opts.json, format: opts.format });
       if (!opts.json) {
@@ -107,8 +142,14 @@ iconsResource
   .action(async (name: string, opts) => {
     try {
       name = normalizeIconName(name);
+      const meta = await getIconMeta(name);
       const info: Record<string, unknown> = {
         name,
+        categories: meta ? getIconCategories(meta) : [],
+        tags: meta ? getIconTags(meta).slice(0, 10) : [],
+        popularity: meta ? getIconPopularity(meta) : undefined,
+        codepoint: meta ? getIconCodepoint(meta) : undefined,
+        codepoint_hex: meta ? `0x${getIconCodepoint(meta)!.toString(16)}` : undefined,
         styles: STYLES.join(", "),
         fill_supported: "yes",
         weights: WEIGHTS.join(", "),
@@ -116,6 +157,7 @@ iconsResource
         svg_url_outlined_fill: `${SVG_CDN}-400/outlined/${name}-fill.svg`,
         svg_url_rounded: `${SVG_CDN}-400/rounded/${name}.svg`,
         svg_url_sharp: `${SVG_CDN}-400/sharp/${name}.svg`,
+        sizes_available: meta ? (meta.sizes_px || [20, 24, 40, 48]) : [20, 24, 40, 48],
         android_xml_dir: `${GITHUB_ANDROID_RAW}/${name}/materialsymbolsoutlined`,
         browse_url: `https://fonts.google.com/icons?icon=${name}`,
       };
@@ -322,6 +364,44 @@ iconsResource
       output(data, { json: opts.json });
       if (!opts.json) {
         log.success(`Downloaded ${results.length} icons` + (errors.length > 0 ? ` (${errors.length} failed)` : ""));
+      }
+    } catch (err) {
+      handleError(err, opts.json);
+    }
+  });
+
+iconsResource
+  .command("categories")
+  .description("List available icon categories with icon counts")
+  .option("--json", "Output as JSON")
+  .option("--format <fmt>", "Output format: text, json, csv, yaml")
+  .addHelpText("after", [
+    "Examples:",
+    "  material-symbols-cli icons categories",
+    "  material-symbols-cli icons categories --json",
+  ].join("\n"))
+  .action(async (opts) => {
+    try {
+      const meta = await getMetadata();
+      const counts = new Map<string, number>();
+
+      for (const name of ICON_NAMES) {
+        const m = meta.get(name);
+        if (m && m.categories) {
+          for (const cat of m.categories) {
+            counts.set(cat, (counts.get(cat) || 0) + 1);
+          }
+        }
+      }
+
+      const data = Array.from(counts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([category, count]) => ({ category, icon_count: count }));
+
+      output(data, { json: opts.json, format: opts.format });
+      if (!opts.json) {
+        log.info(`\n${data.length} categories`);
+        log.info('Use --category <name> with "icons list" or "icons search" to filter');
       }
     } catch (err) {
       handleError(err, opts.json);
