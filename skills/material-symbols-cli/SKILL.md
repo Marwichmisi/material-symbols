@@ -1,5 +1,5 @@
 ---
-name: material-symbols
+name: material-symbols-cli
 description: "Search, download, and generate code for Google Material Symbols icons. Use when user mentions 'material symbols', 'material icons', 'Google icons', 'Android icons', or needs to find/download icons for an app."
 category: design
 ---
@@ -43,14 +43,18 @@ Use the `material-symbols-cli` skill when you need to:
 
 ## Setup
 
-If `material-symbols-cli` is not found, install and build it:
+If `material-symbols-cli` is not found, install it:
 ```bash
-bun --version || curl -fsSL https://bun.sh/install | bash
-npx api2cli bundle material-symbols
-npx api2cli link material-symbols
+npx api2cli install Marwichmisi/material-symbols
 ```
 
-`api2cli link` adds `~/.local/bin` to PATH automatically. The CLI is available in the next command.
+Then link the skill into your project:
+```bash
+cd /path/to/your/project
+material-symbols-cli init
+```
+
+The command looks for `.agents/`, `.claude/`, `.opencode/` in the current directory and installs the skill in any it finds. If none exist, it prompts you to choose which to create — nothing global, everything stays in your project folder.
 
 Always use `--json` flag when calling commands programmatically.
 

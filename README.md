@@ -8,6 +8,12 @@ Made with [api2cli.dev](https://api2cli.dev).
 
 ## Install
 
+### Via npx (no install)
+
+```bash
+npx material-symbols-cli --help
+```
+
 ### Via api2cli (recommended)
 
 ```bash
@@ -20,14 +26,16 @@ npx api2cli install Marwichmisi/material-symbols
 npm install -g material-symbols-cli
 ```
 
-### From source
+### Link the skill to your project
+
+After installing, make the agent skill available locally:
 
 ```bash
-git clone https://github.com/Marwichmisi/material-symbols.git
-cd material-symbols
-bun install && bun run build
-# Add dist/ to PATH or alias it
+cd /path/to/your/project
+material-symbols-cli init
 ```
+
+This installs the skill into `.agents/`, `.claude/`, or `.opencode/` in your project — nothing global.
 
 ## Usage
 
@@ -105,6 +113,7 @@ material-symbols-cli code font-face --style outlined
 | `android` | Generate and download Android Vector Drawable XML icons |
 | `compose` | Generate Kotlin/Jetpack Compose code snippets |
 | `code` | Generate HTML/CSS/JS code snippets |
+| `init` | Install the agent skill into your project (local only) |
 | `auth` | Manage API authentication (not required for public data) |
 
 ## Styles
@@ -121,7 +130,7 @@ Each style has **filled** variants.
 
 ## Global Flags
 
-All commands support: `--json`, `--format <text|json|csv|yaml>`, `--verbose`, `--no-color`, `--no-header`
+All commands support: `--json`, `--format <fmt>` (`text`, `json`, `csv` or `yaml`), `--verbose`, `--no-color`, `--no-header`
 
 Exit codes: 0 = success, 1 = API error, 2 = usage error
 

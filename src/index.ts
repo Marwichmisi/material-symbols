@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import { globalFlags } from "./lib/config.js";
 import { authCommand } from "./commands/auth.js";
+import { initCommand } from "./commands/init.js";
 import { iconsResource } from "./resources/icons.js";
 import { androidResource } from "./resources/android.js";
 import { composeResource } from "./resources/compose.js";
@@ -28,6 +29,7 @@ program
   });
 
 program.addCommand(authCommand);
+program.addCommand(initCommand);
 program.addCommand(iconsResource);
 program.addCommand(androidResource);
 program.addCommand(composeResource);
